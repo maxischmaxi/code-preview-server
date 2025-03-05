@@ -18,7 +18,7 @@ app.post("/session", async (_, res) => {
   try {
     const session = await createSession();
     res.json(session);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
@@ -29,7 +29,7 @@ app.get("/session/:id", async (req, res) => {
   try {
     const session = await getSession(id);
     res.json(session);
-  } catch (error) {
+  } catch (error: any) {
     res.status(500).json({ status: "error", message: error.message });
   }
 });
@@ -39,14 +39,9 @@ io.on("error", onError);
 
 connect()
   .then(() => {
-    server.listen(
-      {
-        port: 5172,
-        host: "0.0.0.0",
-      },
-      () => {
-        console.log("Server is running on port 5172");
-      },
-    );
+    server.listen({
+      port: 3000,
+      host: "0.0.0.0",
+    });
   })
   .catch(console.error);

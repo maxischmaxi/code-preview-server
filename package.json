@@ -5,6 +5,7 @@
   "scripts": {
     "start": "docker-compose up --build",
     "test:start": "docker-compose run --build --rm --service-ports server npm run project:start",
+    "build": "tsc",
     "dev": "nodemon"
   },
   "keywords": [],

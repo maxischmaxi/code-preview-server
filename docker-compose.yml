@@ -30,7 +30,7 @@ services:
   server:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     container_name: code-preview-server
     volumes:
       - .:/usr/app
@@ -38,8 +38,6 @@ services:
       - 5172:5172
     env_file:
       - path: ./.env
-      - path: ./.env.local
-        required: false
     environment:
       - TERM=xterm-256color
       - NODE_ENV=development
