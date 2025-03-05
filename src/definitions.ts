@@ -33,13 +33,38 @@ export type CursorSelection = {
   positionColumn: number;
 };
 
-export type ConnectedClient = {
+export type User = {
   id: string;
-  cursorPosition: CursorPosition;
-  cursorSelection: CursorSelection | null;
+};
+
+export type ConnectedClient = {
+  socketId: string;
+  sessionId: string | null;
 };
 
 export type Session = {
   id: string;
   name: string;
+  code: string;
+  language: string;
+};
+
+export type OnTextInputData = {
+  changes: Array<Change>;
+  sessionId: string;
+};
+
+export type OnReplaceTextData = {
+  text: string;
+  sessionId: string;
+};
+
+export type ClientJoinedSessionMessage = {
+  socketId: string;
+  sessionId: string;
+};
+
+export type ClientLeftSessionMessage = {
+  socketId: string;
+  sessionId: string;
 };

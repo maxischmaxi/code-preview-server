@@ -5,9 +5,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /usr/app
 
-COPY package.json ./
-COPY package-lock.json ./
-COPY nodemon.json ./
+COPY package.json package-lock.json nodemon.json .env ./
 
 RUN npm install -g nodemon
 RUN npm ci
