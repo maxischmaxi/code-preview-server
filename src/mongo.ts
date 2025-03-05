@@ -18,7 +18,11 @@ export function isMongoConnected() {
 export async function reset(): Promise<void> {
   const sessions = await getAllSessions();
   for (const session of sessions) {
-    await deleteSession(session.id);
+    const created = dayjs(session.createdAt);
+
+    if (dayjs().diff(created, "seconds") > 60) {
+      await deleteSession(session.id);
+    }
   }
 }
 
