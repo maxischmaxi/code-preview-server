@@ -120,7 +120,6 @@ export function onConnection(socket: Socket) {
 
       io.to(connectedClients[i].socketId).emit("text-input", {
         text: data.text,
-        language: session.language,
       });
     }
   }
@@ -183,9 +182,41 @@ export function onConnection(socket: Socket) {
     }
   }
 
+  async function onLanguageChangeHandler(data: {
+    id: string;
+    language: string;
+  }) {
+    const index = connectedClients.findIndex(
+      (client) => client.socketId === socket.id,
+    );
+
+    if (index === -1) return;
+
+    if (connectedClients[index].sessionId !== data.id) return;
+
+    const session = await getSession(data.id);
+    session.language = data.language;
+
+    await updateSession(session);
+
+    for (let i = 0; i < connectedClients.length; i++) {
+      if (connectedClients[i].sessionId !== data.id) {
+        continue;
+      }
+      if (connectedClients[i].socketId === socket.id) {
+        continue;
+      }
+
+      io.to(connectedClients[i].socketId).emit("language-change", {
+        language: data.language,
+      });
+    }
+  }
+
   socket.on("join-session", onJoinSessionHandler);
   socket.on("leave-session", onLeaveSessionHandler);
   socket.on("text-input", onTextInputHandler);
+  socket.on("language-change", onLanguageChangeHandler);
   socket.on("disconnect", onDisconnect);
   socket.on("error", onError);
   socket.on("linting-update", onLintingUpdateHandler);
