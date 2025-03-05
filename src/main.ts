@@ -1,10 +1,8 @@
 import { connect, createSession, getSession, isMongoConnected } from "./mongo";
-import { sleep } from "./utils";
 import { onConnection, onError } from "./socket";
 import { app, io, server } from "./server";
 
 app.get("/", async (_, res) => {
-  await sleep(1000);
   if (!isMongoConnected()) {
     res.json({ status: "error", message: "Not connected to MongoDB" });
     return;
@@ -14,7 +12,6 @@ app.get("/", async (_, res) => {
 });
 
 app.post("/session", async (_, res) => {
-  await sleep(1000);
   try {
     const session = await createSession();
     res.json(session);
@@ -24,7 +21,6 @@ app.post("/session", async (_, res) => {
 });
 
 app.get("/session/:id", async (req, res) => {
-  await sleep(1000);
   const id = req.params.id;
   try {
     const session = await getSession(id);
