@@ -154,9 +154,39 @@ export function onConnection(socket: Socket) {
     connectedClients.splice(index, 1);
   }
 
+  async function onLintingUpdateHandler(data: {
+    id: string;
+    lintingEnabled: boolean;
+  }) {
+    const index = connectedClients.findIndex(
+      (client) => client.socketId === socket.id,
+    );
+
+    if (index === -1) return;
+
+    if (connectedClients[index].sessionId !== data.id) return;
+    const session = await getSession(data.id);
+    session.lintingEnabled = data.lintingEnabled;
+    await updateSession(session);
+
+    for (let i = 0; i < connectedClients.length; i++) {
+      if (connectedClients[i].sessionId !== data.id) {
+        continue;
+      }
+      if (connectedClients[i].socketId === socket.id) {
+        continue;
+      }
+
+      io.to(connectedClients[i].socketId).emit("linting-update", {
+        lintingEnabled: data.lintingEnabled,
+      });
+    }
+  }
+
   socket.on("join-session", onJoinSessionHandler);
   socket.on("leave-session", onLeaveSessionHandler);
   socket.on("text-input", onTextInputHandler);
   socket.on("disconnect", onDisconnect);
   socket.on("error", onError);
+  socket.on("linting-update", onLintingUpdateHandler);
 }

@@ -44,10 +44,10 @@ export type ConnectedClient = {
 
 export type Session = {
   id: string;
-  name: string;
   code: string;
   language: string;
   createdAt: string;
+  lintingEnabled: boolean;
 };
 
 export type OnTextInputData = {

@@ -42,19 +42,19 @@ export async function createSession(): Promise<Session> {
   const id = new ObjectId();
   const createdAt = dayjs().toISOString();
   await collection.insertOne({
-    name: "New Session",
     _id: id,
     language: "typescript",
     code: "",
     createdAt,
+    lintingEnabled: false,
   });
 
   return {
     id: id.toHexString(),
-    name: "New Session",
     language: "typescript",
     code: "",
     createdAt,
+    lintingEnabled: false,
   };
 }
 
@@ -72,10 +72,10 @@ export async function getAllSessions(): Promise<Session[]> {
 
   return sessions.map((session: any) => ({
     id: session._id.toHexString(),
-    name: session.name ?? "New Session",
     language: session.language ?? "",
     code: session.code ?? "",
     createdAt: session.createdAt ?? "",
+    lintingEnabled: session.lintingEnabled ?? false,
   }));
 }
 
@@ -93,10 +93,10 @@ export async function getSession(id: string): Promise<Session> {
 
   return {
     id: session._id.toHexString(),
-    name: session.name ?? "New Session",
     language: session.language ?? "",
     code: session.code ?? "",
     createdAt: session.createdAt ?? "",
+    lintingEnabled: session.lintingEnabled ?? false,
   };
 }
 
@@ -111,9 +111,9 @@ export async function updateSession(session: Session): Promise<void> {
     { _id: new ObjectId(session.id) },
     {
       $set: {
-        name: session.name,
         code: session.code,
         language: session.language,
+        lintingEnabled: session.lintingEnabled,
       },
     },
   );
