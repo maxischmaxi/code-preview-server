@@ -47,6 +47,7 @@ export type Session = {
   name: string;
   code: string;
   language: string;
+  createdAt: string;
 };
 
 export type OnTextInputData = {

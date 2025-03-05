@@ -1,4 +1,10 @@
-import { connect, createSession, getSession, isMongoConnected } from "./mongo";
+import {
+  connect,
+  createSession,
+  getSession,
+  isMongoConnected,
+  reset,
+} from "./mongo";
 import { onConnection, onError } from "./socket";
 import { app, io, server } from "./server";
 
@@ -9,6 +15,21 @@ app.get("/", async (_, res) => {
   }
 
   res.json({ status: "OK" });
+});
+
+app.post("/reset", async (req, res) => {
+  const auth = req.headers.authorization;
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    res.status(401).json({ status: "error", message: "Unauthorized" });
+    return;
+  }
+
+  try {
+    await reset();
+    res.status(200).json({ status: "OK" });
+  } catch (error: any) {
+    res.status(500).json({ status: "error", message: error.message });
+  }
 });
 
 app.post("/session", async (_, res) => {

@@ -1,5 +1,6 @@
 import { MongoClient, ObjectId } from "mongodb";
 import { Session, User } from "./definitions";
+import dayjs from "dayjs";
 
 const mongo_url = process.env.MONGO_URL;
 let client: MongoClient | null = null;
@@ -14,6 +15,19 @@ export function isMongoConnected() {
   return client !== null;
 }
 
+export async function reset(): Promise<void> {
+  const sessions = await getAllSessions();
+  for (const session of sessions) {
+    await deleteSession(session.id);
+  }
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  const db = client!.db("collab");
+  const collection = db.collection("sessions");
+  await collection.deleteOne({ _id: new ObjectId(id) });
+}
+
 export async function createSession(): Promise<Session> {
   if (!isMongoConnected()) {
     throw new Error("MongoDB is not connected");
@@ -22,11 +36,13 @@ export async function createSession(): Promise<Session> {
   const db = client!.db("collab");
   const collection = db.collection("sessions");
   const id = new ObjectId();
+  const createdAt = dayjs().toISOString();
   await collection.insertOne({
     name: "New Session",
     _id: id,
     language: "typescript",
     code: "",
+    createdAt,
   });
 
   return {
@@ -34,6 +50,7 @@ export async function createSession(): Promise<Session> {
     name: "New Session",
     language: "typescript",
     code: "",
+    createdAt,
   };
 }
 
@@ -54,6 +71,7 @@ export async function getAllSessions(): Promise<Session[]> {
     name: session.name ?? "New Session",
     language: session.language ?? "",
     code: session.code ?? "",
+    createdAt: session.createdAt ?? "",
   }));
 }
 
@@ -74,6 +92,7 @@ export async function getSession(id: string): Promise<Session> {
     name: session.name ?? "New Session",
     language: session.language ?? "",
     code: session.code ?? "",
+    createdAt: session.createdAt ?? "",
   };
 }
 
