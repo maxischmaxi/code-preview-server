@@ -88,11 +88,7 @@ export function onConnection(socket: Socket) {
     }
   }
 
-  async function onTextInputHandler(data: {
-    text: string;
-    id: string;
-    language: string;
-  }) {
+  async function onTextInputHandler(data: { text: string; id: string }) {
     const index = connectedClients.findIndex(
       (client) => client.socketId === socket.id,
     );
@@ -106,7 +102,6 @@ export function onConnection(socket: Socket) {
     const session = await getSession(sessionId);
 
     session.code = data.text;
-    session.language = data.language;
 
     await updateSession(session);
 
