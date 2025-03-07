@@ -216,9 +216,13 @@ io.on("connection", function (socket) {
 
     await updateSession(session);
 
-    io.to(sessionId).emit(SocketEvent.TEXT_INPUT, {
-      text: data.text,
-    });
+    for (const client of connectedClients) {
+      if (client.sessionId === sessionId && client.socketId !== socket.id) {
+        io.to(client.socketId).emit(SocketEvent.TEXT_INPUT, {
+          text: data.text,
+        });
+      }
+    }
   }
 
   function onDisconnect() {
@@ -360,10 +364,17 @@ io.on("connection", function (socket) {
     session.code = template.code;
     await updateSession(session);
 
-    io.to(data.sessionId).emit(SocketEvent.SET_SOLUTION, session.solution);
-    io.to(data.sessionId).emit(SocketEvent.TEXT_INPUT, {
-      text: session.code,
-    });
+    for (const client of connectedClients) {
+      if (
+        client.sessionId === data.sessionId &&
+        client.socketId !== socket.id
+      ) {
+        io.to(client.socketId).emit(SocketEvent.TEXT_INPUT, {
+          text: session.code,
+        });
+        io.to(client.socketId).emit(SocketEvent.SET_SOLUTION, session.solution);
+      }
+    }
   }
 
   socket.on(SocketEvent.JOIN, joinHandler);
