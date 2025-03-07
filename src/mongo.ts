@@ -1,18 +1,29 @@
 import { MongoClient, ObjectId } from "mongodb";
-import { Session, User } from "./definitions";
+import { Session, Template } from "./definitions";
 import dayjs from "dayjs";
+import dotenv from "dotenv";
+dotenv.config();
 
 const mongo_url = process.env.MONGO_URL;
-let client: MongoClient | null = null;
 
-export async function connect() {
-  if (client !== null || mongo_url === undefined) return;
+let client = new MongoClient(mongo_url!);
+const db = client.db("collab");
+const templates = db.collection("templates");
+const sessions = db.collection("sessions");
 
-  client = await MongoClient.connect(mongo_url);
-}
+export async function getTemplate(id: string): Promise<Template> {
+  const template = await templates.findOne({ _id: new ObjectId(id) });
+  if (template === null) {
+    throw new Error("Template not found");
+  }
 
-export function isMongoConnected() {
-  return client !== null;
+  return {
+    id: template._id.toHexString(),
+    title: template.title,
+    code: template.code,
+    solution: template.solution,
+    language: template.language,
+  };
 }
 
 export async function reset(): Promise<void> {
@@ -26,32 +37,74 @@ export async function reset(): Promise<void> {
   }
 }
 
-export async function deleteSession(id: string): Promise<void> {
-  const db = client!.db("collab");
-  const collection = db.collection("sessions");
-  await collection.deleteOne({ _id: new ObjectId(id) });
+export async function createTemplate(
+  data: Omit<Template, "id">,
+): Promise<Template> {
+  const id = new ObjectId();
+  await templates.insertOne({ _id: id, ...data });
+
+  return {
+    id: id.toHexString(),
+    ...data,
+  };
 }
 
-export async function createSession(): Promise<Session> {
-  if (!isMongoConnected()) {
-    throw new Error("MongoDB is not connected");
+export async function updateTemplate(data: Template): Promise<Template> {
+  await templates.updateOne(
+    { _id: new ObjectId(data.id) },
+    {
+      $set: {
+        title: data.title,
+        code: data.code,
+        solution: data.solution,
+      },
+    },
+  );
+
+  return data;
+}
+
+export async function getAllTemplates(): Promise<Template[]> {
+  const t = await templates.find().toArray();
+  if (t.length === 0) {
+    return [];
   }
 
-  const db = client!.db("collab");
-  const collection = db.collection("sessions");
+  return t.map((template: any) => ({
+    id: template._id.toHexString(),
+    title: template.title,
+    code: template.code,
+    solution: template.solution,
+    language: template.language,
+  }));
+}
+
+export async function deleteTemplate(id: string): Promise<void> {
+  await templates.deleteOne({ _id: new ObjectId(id) });
+}
+
+export async function deleteSession(id: string): Promise<void> {
+  await sessions.deleteOne({ _id: new ObjectId(id) });
+}
+
+export async function createSession(userId: string): Promise<Session> {
   const id = new ObjectId();
   const createdAt = dayjs().toISOString();
-  await collection.insertOne({
+  await sessions.insertOne({
     _id: id,
     language: "typescript",
     code: "",
     createdAt,
     lintingEnabled: false,
+    createdBy: userId,
   });
 
   return {
+    solution: "",
     id: id.toHexString(),
     language: "typescript",
+    createdBy: userId,
+    admins: [],
     code: "",
     createdAt,
     lintingEnabled: false,
@@ -59,96 +112,52 @@ export async function createSession(): Promise<Session> {
 }
 
 export async function getAllSessions(): Promise<Session[]> {
-  if (!isMongoConnected()) {
-    throw new Error("MongoDB is not connected");
-  }
-
-  const db = client!.db("collab");
-  const collection = db.collection("sessions");
-  const sessions = await collection.find().toArray();
-  if (sessions.length === 0) {
+  const s = await sessions.find().toArray();
+  if (s.length === 0) {
     return [];
   }
 
-  return sessions.map((session: any) => ({
+  return s.map((session: any) => ({
+    solution: session.solution ?? "",
     id: session._id.toHexString(),
     language: session.language ?? "",
     code: session.code ?? "",
     createdAt: session.createdAt ?? "",
     lintingEnabled: session.lintingEnabled ?? false,
+    admins: session.admins ?? [],
+    createdBy: session.createdBy ?? "",
   }));
 }
 
 export async function getSession(id: string): Promise<Session> {
-  if (!isMongoConnected()) {
-    throw new Error("MongoDB is not connected");
-  }
-
-  const db = client!.db("collab");
-  const collection = db.collection("sessions");
-  const session = await collection.findOne({ _id: new ObjectId(id) });
+  const session = await sessions.findOne({ _id: new ObjectId(id) });
   if (session === null) {
     throw new Error("Session not found");
   }
 
   return {
+    solution: session.solution ?? "",
     id: session._id.toHexString(),
     language: session.language ?? "",
     code: session.code ?? "",
+    admins: session.admins ?? [],
+    createdBy: session.createdBy ?? "",
     createdAt: session.createdAt ?? "",
     lintingEnabled: session.lintingEnabled ?? false,
   };
 }
 
 export async function updateSession(session: Session): Promise<void> {
-  if (!isMongoConnected()) {
-    throw new Error("MongoDB is not connected");
-  }
-
-  const db = client!.db("collab");
-  const collection = db.collection("sessions");
-  await collection.updateOne(
+  await sessions.updateOne(
     { _id: new ObjectId(session.id) },
     {
       $set: {
         code: session.code,
         language: session.language,
         lintingEnabled: session.lintingEnabled,
+        admins: session.admins,
+        solution: session.solution,
       },
     },
   );
-}
-
-export async function getUserById(id: string): Promise<User | null> {
-  if (!isMongoConnected()) {
-    throw new Error("MongoDB is not connected");
-  }
-
-  const db = client!.db("collab");
-  const collection = db.collection("users");
-  const user = await collection.findOne({ _id: new ObjectId(id) });
-
-  if (user === null) {
-    return null;
-  }
-
-  return {
-    id: user._id.toHexString(),
-  };
-}
-
-export async function createUser(): Promise<User> {
-  if (!isMongoConnected()) {
-    throw new Error("MongoDB is not connected");
-  }
-
-  const db = client!.db("collab");
-  const collection = db.collection("users");
-  const id = new ObjectId();
-  await collection.insertOne({
-    _id: id,
-  });
-  return {
-    id: id.toHexString(),
-  };
 }

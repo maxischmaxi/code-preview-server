@@ -3,8 +3,6 @@
   "version": "1.0.0",
   "main": "src/main.ts",
   "scripts": {
-    "start": "docker-compose up --build",
-    "test:start": "docker-compose run --build --rm --service-ports server npm run project:start",
     "build": "tsc",
     "dev": "nodemon"
   },
@@ -15,12 +13,15 @@
   "dependencies": {
     "cors": "^2.8.5",
     "dayjs": "^1.11.13",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "mongodb": "^6.12.0",
+    "morgan": "^1.10.0",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "@types/express": "^5.0.0",
+    "@types/morgan": "^1.9.9",
     "typescript": "^5.7.2"
   }
 }

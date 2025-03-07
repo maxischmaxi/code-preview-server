@@ -1,3 +1,23 @@
+export enum SocketEvent {
+  JOIN_SESSION = "join-session",
+  LEAVE_SESSION = "leave-session",
+  TEXT_INPUT = "text-input",
+  LANGUAGE_CHANGE = "language-change",
+  SET_ADMIN = "set-admin",
+  SET_SOLUTION = "set-solution",
+  REMOVE_ADMIN = "remove-admin",
+  LINTING_UPDATE = "linting-update",
+  JOIN = "join",
+}
+
+export type Template = {
+  id: string;
+  title: string;
+  code: string;
+  language: string;
+  solution: string;
+};
+
 export type CursorPosition = {
   lineNumber: number;
   column: number;
@@ -40,6 +60,7 @@ export type User = {
 export type ConnectedClient = {
   socketId: string;
   sessionId: string | null;
+  userId: string;
 };
 
 export type Session = {
@@ -47,6 +68,9 @@ export type Session = {
   code: string;
   language: string;
   createdAt: string;
+  createdBy: string;
+  solution: string;
+  admins: string[];
   lintingEnabled: boolean;
 };
 
