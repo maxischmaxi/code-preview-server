@@ -400,7 +400,7 @@ io.on("connection", function (socket) {
 
   function onSendCursorPositionHandler(data: CursorPosition) {
     const cursorIndex = cursorPositions.findIndex(
-      (c) => c.userId === data.userId,
+      (c) => c.userId === data.userId && c.sessionId === data.sessionId,
     );
 
     if (cursorIndex > -1) {
@@ -409,14 +409,24 @@ io.on("connection", function (socket) {
       cursorPositions.push(data);
     }
 
-    for (const client of connectedClients) {
-      if (
-        client.sessionId === data.sessionId &&
-        client.socketId !== socket.id
-      ) {
-        io.to(client.socketId).emit(SocketEvent.SEND_CURSOR_POSITION, data);
-      }
-    }
+    io.to(data.sessionId).emit(
+      SocketEvent.SEND_CURSOR_POSITION,
+      cursorPositions.filter((c) => c.sessionId === data.sessionId),
+    );
+  }
+
+  function onRemoveCurosrPositionHandler(data: {
+    sessionId: string;
+    userId: string;
+  }) {
+    cursorPositions = cursorPositions.filter(
+      (c) => c.sessionId !== data.sessionId || c.userId !== data.userId,
+    );
+
+    io.to(data.sessionId).emit(
+      SocketEvent.SEND_CURSOR_POSITION,
+      cursorPositions.filter((c) => c.sessionId === data.sessionId),
+    );
   }
 
   socket.on(SocketEvent.JOIN, joinHandler);
@@ -429,6 +439,7 @@ io.on("connection", function (socket) {
   socket.on(SocketEvent.SET_SOLUTION, onSetSolutionHandler);
   socket.on(SocketEvent.SOLITION_PRESENTED, onSolutionPresentedHandler);
   socket.on(SocketEvent.SEND_CURSOR_POSITION, onSendCursorPositionHandler);
+  socket.on(SocketEvent.REMOVE_CURSOR_POISITON, onRemoveCurosrPositionHandler);
   socket.on("disconnect", onDisconnect);
   socket.on("error", (error) => {
     console.error(error);
