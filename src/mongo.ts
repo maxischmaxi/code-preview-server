@@ -95,11 +95,12 @@ export async function createSession(userId: string): Promise<Session> {
     language: "typescript",
     code: "",
     createdAt,
-    lintingEnabled: false,
     createdBy: userId,
+    solutionPresented: false,
   });
 
   return {
+    solutionPresented: false,
     solution: "",
     id: id.toHexString(),
     language: "typescript",
@@ -107,7 +108,6 @@ export async function createSession(userId: string): Promise<Session> {
     admins: [],
     code: "",
     createdAt,
-    lintingEnabled: false,
   };
 }
 
@@ -118,12 +118,12 @@ export async function getAllSessions(): Promise<Session[]> {
   }
 
   return s.map((session: any) => ({
+    solutionPresented: session.solutionPresented ?? false,
     solution: session.solution ?? "",
     id: session._id.toHexString(),
     language: session.language ?? "",
     code: session.code ?? "",
     createdAt: session.createdAt ?? "",
-    lintingEnabled: session.lintingEnabled ?? false,
     admins: session.admins ?? [],
     createdBy: session.createdBy ?? "",
   }));
@@ -136,6 +136,7 @@ export async function getSession(id: string): Promise<Session> {
   }
 
   return {
+    solutionPresented: session.solutionPresented ?? false,
     solution: session.solution ?? "",
     id: session._id.toHexString(),
     language: session.language ?? "",
@@ -143,7 +144,6 @@ export async function getSession(id: string): Promise<Session> {
     admins: session.admins ?? [],
     createdBy: session.createdBy ?? "",
     createdAt: session.createdAt ?? "",
-    lintingEnabled: session.lintingEnabled ?? false,
   };
 }
 
@@ -154,9 +154,9 @@ export async function updateSession(session: Session): Promise<void> {
       $set: {
         code: session.code,
         language: session.language,
-        lintingEnabled: session.lintingEnabled,
         admins: session.admins,
         solution: session.solution,
+        solutionPresented: session.solutionPresented,
       },
     },
   );

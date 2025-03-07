@@ -11,7 +11,7 @@ import {
 import dotenv from "dotenv";
 import morgan from "morgan";
 import express from "express";
-import { ConnectedClient, SocketEvent } from "./definitions";
+import { ConnectedClient, CursorPosition, SocketEvent } from "./definitions";
 import { Server } from "socket.io";
 import cors from "cors";
 import http from "http";
@@ -28,6 +28,7 @@ const corsOptions = {
   allowedHeaders: ["Authorization", "Content-Type", "Accept"],
 };
 
+let cursorPositions: CursorPosition[] = [];
 let connectedClients: ConnectedClient[] = [];
 const port = process.env.NODE_ENV === "development" ? 4000 : 3000;
 const app = express();
@@ -242,26 +243,6 @@ io.on("connection", function (socket) {
     }
   }
 
-  async function onLintingUpdateHandler(data: {
-    sessionId: string;
-    lintingEnabled: boolean;
-    id: string;
-  }) {
-    const index = connectedClients.findIndex(
-      (client) => client.socketId === socket.id,
-    );
-
-    if (index === -1) return;
-
-    if (connectedClients[index].sessionId !== data.sessionId) return;
-    const session = await getSession(data.sessionId);
-    session.lintingEnabled = data.lintingEnabled;
-    await updateSession(session);
-    io.to(session.id).emit(SocketEvent.LINTING_UPDATE, {
-      lintingEnabled: data.lintingEnabled,
-    });
-  }
-
   async function onLanguageChangeHandler(data: {
     sessionId: string;
     language: string;
@@ -362,6 +343,8 @@ io.on("connection", function (socket) {
 
     session.solution = template.solution;
     session.code = template.code;
+    session.solutionPresented = false;
+    session.language = template.language;
     await updateSession(session);
 
     for (const client of connectedClients) {
@@ -372,7 +355,66 @@ io.on("connection", function (socket) {
         io.to(client.socketId).emit(SocketEvent.TEXT_INPUT, {
           text: session.code,
         });
+
+        io.to(data.sessionId).emit(SocketEvent.LANGUAGE_CHANGE, {
+          language: session.language,
+        });
         io.to(client.socketId).emit(SocketEvent.SET_SOLUTION, session.solution);
+      }
+    }
+  }
+
+  async function onSolutionPresentedHandler(data: {
+    sessionId: string;
+    userId: string;
+  }) {
+    const index = connectedClients.findIndex(
+      (client) => client.socketId === socket.id,
+    );
+
+    if (index === -1) return;
+
+    const session = await getSession(data.sessionId);
+
+    if (
+      connectedClients[index].userId !== session.createdBy &&
+      !session.admins.includes(connectedClients[index].userId)
+    ) {
+      return;
+    }
+
+    session.solutionPresented = true;
+    await updateSession(session);
+    for (const client of connectedClients) {
+      if (
+        client.sessionId === data.sessionId &&
+        client.socketId !== socket.id
+      ) {
+        io.to(client.socketId).emit(
+          SocketEvent.SOLITION_PRESENTED,
+          session.solutionPresented,
+        );
+      }
+    }
+  }
+
+  function onSendCursorPositionHandler(data: CursorPosition) {
+    const cursorIndex = cursorPositions.findIndex(
+      (c) => c.userId === data.userId,
+    );
+
+    if (cursorIndex > -1) {
+      cursorPositions[cursorIndex] = data;
+    } else {
+      cursorPositions.push(data);
+    }
+
+    for (const client of connectedClients) {
+      if (
+        client.sessionId === data.sessionId &&
+        client.socketId !== socket.id
+      ) {
+        io.to(client.socketId).emit(SocketEvent.SEND_CURSOR_POSITION, data);
       }
     }
   }
@@ -385,11 +427,12 @@ io.on("connection", function (socket) {
   socket.on(SocketEvent.SET_ADMIN, onSetAdminHandler);
   socket.on(SocketEvent.REMOVE_ADMIN, onRemoveAdminHandler);
   socket.on(SocketEvent.SET_SOLUTION, onSetSolutionHandler);
+  socket.on(SocketEvent.SOLITION_PRESENTED, onSolutionPresentedHandler);
+  socket.on(SocketEvent.SEND_CURSOR_POSITION, onSendCursorPositionHandler);
   socket.on("disconnect", onDisconnect);
   socket.on("error", (error) => {
     console.error(error);
   });
-  socket.on("linting-update", onLintingUpdateHandler);
 });
 
 io.on("error", (error) => {

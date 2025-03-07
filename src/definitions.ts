@@ -6,9 +6,19 @@ export enum SocketEvent {
   SET_ADMIN = "set-admin",
   SET_SOLUTION = "set-solution",
   REMOVE_ADMIN = "remove-admin",
-  LINTING_UPDATE = "linting-update",
+  SOLITION_PRESENTED = "solution-presented",
   JOIN = "join",
+  SEND_CURSOR_POSITION = "send-cursor-position",
 }
+
+export type CursorPosition = {
+  sessionId: string;
+  userId: string;
+  cursor: {
+    column: number;
+    lineNumber: number;
+  };
+};
 
 export type Template = {
   id: string;
@@ -16,11 +26,6 @@ export type Template = {
   code: string;
   language: string;
   solution: string;
-};
-
-export type CursorPosition = {
-  lineNumber: number;
-  column: number;
 };
 
 export type File = {
@@ -64,6 +69,7 @@ export type ConnectedClient = {
 };
 
 export type Session = {
+  solutionPresented: boolean;
   id: string;
   code: string;
   language: string;
@@ -71,7 +77,6 @@ export type Session = {
   createdBy: string;
   solution: string;
   admins: string[];
-  lintingEnabled: boolean;
 };
 
 export type OnTextInputData = {
