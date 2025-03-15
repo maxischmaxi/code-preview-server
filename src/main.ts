@@ -11,7 +11,12 @@ import {
 import dotenv from "dotenv";
 import morgan from "morgan";
 import express from "express";
-import { ConnectedClient, CursorPosition, SocketEvent } from "./definitions";
+import {
+  ConnectedClient,
+  CursorPosition,
+  CursorSelection,
+  SocketEvent,
+} from "./definitions";
 import { Server } from "socket.io";
 import cors from "cors";
 import http from "http";
@@ -29,6 +34,7 @@ const corsOptions = {
 };
 
 let cursorPositions: CursorPosition[] = [];
+let cursorSelections: CursorSelection[] = [];
 let connectedClients: ConnectedClient[] = [];
 const port = process.env.NODE_ENV === "development" ? 4000 : 3000;
 const app = express();
@@ -124,7 +130,7 @@ app.post("/reset", async (req, res) => {
 });
 
 app.post("/session", async (req, res) => {
-  const { id } = req.body;
+  const { id, nickname } = req.body;
 
   if (typeof id !== "string" || !id) {
     res.status(400).json({ status: "error", message: "Invalid id" });
@@ -132,6 +138,19 @@ app.post("/session", async (req, res) => {
       console.log("Invalid id", id);
     }
     return;
+  }
+
+  if (typeof nickname !== "string" || !nickname) {
+    res.status(400).json({ status: "error", message: "Invalid nickname" });
+    if (process.env.NODE_ENV === "development") {
+      console.log("Invalid nickname", nickname);
+    }
+    return;
+  }
+
+  const index = connectedClients.findIndex((c) => c.userId === id);
+  if (index > -1) {
+    connectedClients[index].nickname = nickname;
   }
 
   try {
@@ -151,17 +170,28 @@ app.get("/session/:id", async (req, res) => {
     const session = await getSession(id);
     res.json(session).status(200);
   } catch (error: any) {
+    if (process.env.NODE_ENV === "development") {
+      console.log("Error getting session", error.message);
+    }
+
     res.status(500).json({ status: "error", message: error.message });
   }
 });
 
 io.on("connection", function (socket) {
-  async function joinHandler(id: string) {
+  async function joinHandler({
+    id,
+    nickname,
+  }: {
+    id: string;
+    nickname: string;
+  }) {
     connectedClients = connectedClients.filter((c) => c.userId !== id);
     const client: ConnectedClient = {
       socketId: socket.id,
       sessionId: null,
       userId: id,
+      nickname,
     };
 
     connectedClients.push(client);
@@ -172,14 +202,18 @@ io.on("connection", function (socket) {
     userId: string;
   }) {
     const index = connectedClients.findIndex((c) => c.userId === data.userId);
+
     if (index > -1) {
       connectedClients[index].sessionId = data.sessionId;
 
       const clients = connectedClients.filter(
         (c) => c.sessionId === data.sessionId,
       );
+
       socket.join(data.sessionId);
-      io.to(data.sessionId).emit(SocketEvent.JOIN_SESSION, clients);
+      for (const client of clients) {
+        io.to(client.socketId).emit(SocketEvent.JOIN_SESSION, clients);
+      }
     }
   }
 
@@ -190,10 +224,22 @@ io.on("connection", function (socket) {
 
     if (index === -1) return;
 
-    const id = connectedClients[index].sessionId;
-    if (!id) return;
+    const sessionId = connectedClients[index].sessionId;
+    connectedClients[index].sessionId = null;
+    if (sessionId) {
+      socket.leave(sessionId);
+    }
 
-    io.to(id).emit(SocketEvent.LEAVE_SESSION, connectedClients[index]);
+    const clients = connectedClients.filter(
+      (c) => c.sessionId === sessionId && c.socketId !== socket.id,
+    );
+
+    for (const client of clients) {
+      io.to(client.socketId).emit(
+        SocketEvent.LEAVE_SESSION,
+        connectedClients[index],
+      );
+    }
   }
 
   async function onTextInputHandler(data: {
@@ -227,19 +273,26 @@ io.on("connection", function (socket) {
   }
 
   function onDisconnect() {
-    const index = connectedClients.findIndex(
-      (client) => client.socketId === socket.id,
-    );
-    if (index > -1) {
-      connectedClients.splice(index, 1);
+    if (process.env.NODE_ENV === "development") {
+      console.log("Disconnect", socket.id);
+    }
 
-      socket.rooms.forEach((room) => {
-        socket.leave(room);
-        io.to(room).emit(
-          SocketEvent.LEAVE_SESSION,
-          connectedClients.filter((c) => c.sessionId === room),
-        );
-      });
+    const client = connectedClients.find((c) => c.socketId === socket.id);
+
+    if (!client) return;
+
+    const session = client.sessionId;
+
+    if (session) {
+      socket.leave(session);
+
+      const clients = connectedClients.filter(
+        (c) => c.sessionId === session && c.socketId !== socket.id,
+      );
+
+      for (const client of clients) {
+        io.to(client.socketId).emit(SocketEvent.LEAVE_SESSION, clients);
+      }
     }
   }
 
@@ -367,6 +420,7 @@ io.on("connection", function (socket) {
   async function onSolutionPresentedHandler(data: {
     sessionId: string;
     userId: string;
+    presented: boolean;
   }) {
     const index = connectedClients.findIndex(
       (client) => client.socketId === socket.id,
@@ -383,16 +437,17 @@ io.on("connection", function (socket) {
       return;
     }
 
-    session.solutionPresented = true;
+    session.solutionPresented = data.presented;
     await updateSession(session);
+
     for (const client of connectedClients) {
       if (
         client.sessionId === data.sessionId &&
         client.socketId !== socket.id
       ) {
         io.to(client.socketId).emit(
-          SocketEvent.SOLITION_PRESENTED,
-          session.solutionPresented,
+          SocketEvent.SOLUTION_PRESENTED,
+          data.presented,
         );
       }
     }
@@ -415,17 +470,97 @@ io.on("connection", function (socket) {
     );
   }
 
-  function onRemoveCurosrPositionHandler(data: {
-    sessionId: string;
-    userId: string;
-  }) {
+  function onRemoveCursor(data: { sessionId: string; userId: string }) {
     cursorPositions = cursorPositions.filter(
       (c) => c.sessionId !== data.sessionId || c.userId !== data.userId,
     );
 
+    cursorSelections = cursorSelections.filter(
+      (c) => c.sessionId !== data.sessionId || c.userId !== data.userId,
+    );
+
+    for (const client of connectedClients) {
+      if (
+        client.sessionId === data.sessionId &&
+        client.socketId !== socket.id
+      ) {
+        io.to(client.socketId).emit(SocketEvent.REMOVE_CURSOR, data.userId);
+      }
+    }
+  }
+
+  function onNicknameHandler(nickname: string) {
+    const index = connectedClients.findIndex(
+      (client) => client.socketId === socket.id,
+    );
+
+    if (index === -1) return;
+
+    connectedClients[index].nickname = nickname;
+
+    const sessionId = connectedClients[index].sessionId;
+    if (sessionId) {
+      io.to(sessionId).emit(SocketEvent.SET_NICKNAME, connectedClients[index]);
+    }
+  }
+
+  async function onLinting(data: {
+    sessionId: string;
+    userId: string;
+    linting: boolean;
+  }) {
+    const index = connectedClients.findIndex(
+      (client) => client.socketId === socket.id,
+    );
+
+    if (index === -1) return;
+
+    const session = await getSession(data.sessionId);
+
+    if (
+      connectedClients[index].userId !== session.createdBy &&
+      !session.admins.includes(connectedClients[index].userId)
+    ) {
+      return;
+    }
+
+    session.linting = data.linting;
+    await updateSession(session);
+
+    io.to(data.sessionId).emit(SocketEvent.SET_LINTING, data.linting);
+  }
+
+  function onSetSelection(data: {
+    sessionId: string;
+    userId: string;
+    selection: {
+      startColumn: number;
+      startLineNumber: number;
+      endColumn: number;
+      endLineNumber: number;
+    };
+  }) {
+    const index = cursorSelections.findIndex(
+      (c) => c.userId === data.userId && c.sessionId === data.sessionId,
+    );
+
+    if (index > -1) {
+      cursorSelections[index] = {
+        sessionId: data.sessionId,
+        userId: data.userId,
+        ...data.selection,
+      };
+    } else {
+      cursorSelections.push({
+        sessionId: data.sessionId,
+        userId: data.userId,
+        ...data.selection,
+      });
+    }
+
     io.to(data.sessionId).emit(
-      SocketEvent.SEND_CURSOR_POSITION,
-      cursorPositions.filter((c) => c.sessionId === data.sessionId),
+      SocketEvent.SET_SELECTION,
+      cursorSelections.filter((c) => c.sessionId === data.sessionId),
     );
   }
 
@@ -437,9 +572,12 @@ io.on("connection", function (socket) {
   socket.on(SocketEvent.SET_ADMIN, onSetAdminHandler);
   socket.on(SocketEvent.REMOVE_ADMIN, onRemoveAdminHandler);
   socket.on(SocketEvent.SET_SOLUTION, onSetSolutionHandler);
-  socket.on(SocketEvent.SOLITION_PRESENTED, onSolutionPresentedHandler);
+  socket.on(SocketEvent.SOLUTION_PRESENTED, onSolutionPresentedHandler);
   socket.on(SocketEvent.SEND_CURSOR_POSITION, onSendCursorPositionHandler);
-  socket.on(SocketEvent.REMOVE_CURSOR_POISITON, onRemoveCurosrPositionHandler);
+  socket.on(SocketEvent.REMOVE_CURSOR, onRemoveCursor);
+  socket.on(SocketEvent.SET_NICKNAME, onNicknameHandler);
+  socket.on(SocketEvent.SET_LINTING, onLinting);
+  socket.on(SocketEvent.SET_SELECTION, onSetSelection);
   socket.on("disconnect", onDisconnect);
   socket.on("error", (error) => {
     console.error(error);

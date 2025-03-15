@@ -6,10 +6,13 @@ export enum SocketEvent {
   SET_ADMIN = "set-admin",
   SET_SOLUTION = "set-solution",
   REMOVE_ADMIN = "remove-admin",
-  SOLITION_PRESENTED = "solution-presented",
+  SOLUTION_PRESENTED = "solution-presented",
   JOIN = "join",
   SEND_CURSOR_POSITION = "send-cursor-position",
-  REMOVE_CURSOR_POISITON = "remove-cursor-position",
+  SET_NICKNAME = "set-nickname",
+  SET_LINTING = "set-linting",
+  SET_SELECTION = "set-selection",
+  REMOVE_CURSOR = "remove-cursor",
 }
 
 export type CursorPosition = {
@@ -29,44 +32,11 @@ export type Template = {
   solution: string;
 };
 
-export type File = {
-  name: string;
-  language: string;
-  value: string;
-};
-
-export type Change = {
-  range: {
-    startLineNumber: number;
-    startColumn: number;
-    endLineNumber: number;
-    endColumn: number;
-  };
-  rangeLength: number;
-  text: string;
-  rangeOffset: number;
-  forceMoveMarkers: boolean;
-};
-
-export type CursorSelection = {
-  startLineNumber: number;
-  startColumn: number;
-  endLineNumber: number;
-  endColumn: number;
-  selectionStartLineNumber: number;
-  selectionStartColumn: number;
-  positionLineNumber: number;
-  positionColumn: number;
-};
-
-export type User = {
-  id: string;
-};
-
 export type ConnectedClient = {
   socketId: string;
   sessionId: string | null;
   userId: string;
+  nickname: string;
 };
 
 export type Session = {
@@ -78,24 +48,14 @@ export type Session = {
   createdBy: string;
   solution: string;
   admins: string[];
+  linting: boolean;
 };
 
-export type OnTextInputData = {
-  changes: Array<Change>;
+export type CursorSelection = {
   sessionId: string;
-};
-
-export type OnReplaceTextData = {
-  text: string;
-  sessionId: string;
-};
-
-export type ClientJoinedSessionMessage = {
-  socketId: string;
-  sessionId: string;
-};
-
-export type ClientLeftSessionMessage = {
-  socketId: string;
-  sessionId: string;
+  userId: string;
+  startColumn: number;
+  startLineNumber: number;
+  endColumn: number;
+  endLineNumber: number;
 };
