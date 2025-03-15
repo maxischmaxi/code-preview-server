@@ -97,10 +97,12 @@ export async function createSession(userId: string): Promise<Session> {
     createdAt,
     createdBy: userId,
     solutionPresented: false,
+    linting: true,
   });
 
   return {
     solutionPresented: false,
+    linting: false,
     solution: "",
     id: id.toHexString(),
     language: "typescript",
@@ -118,6 +120,7 @@ export async function getAllSessions(): Promise<Session[]> {
   }
 
   return s.map((session: any) => ({
+    linting: session.linting ?? false,
     solutionPresented: session.solutionPresented ?? false,
     solution: session.solution ?? "",
     id: session._id.toHexString(),
@@ -136,6 +139,7 @@ export async function getSession(id: string): Promise<Session> {
   }
 
   return {
+    linting: session.linting ?? false,
     solutionPresented: session.solutionPresented ?? false,
     solution: session.solution ?? "",
     id: session._id.toHexString(),
